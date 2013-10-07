@@ -81,9 +81,21 @@ module Dynamoid #:nodoc:
         self.delete(obj, true)
         values = values(obj)
         return true if values[:hash_value].blank? || (!values[:range_value].nil? && values[:range_value].blank?)
-        existing = Dynamoid::Adapter.read(self.table_name, values[:hash_value], { :range_key => values[:range_value] })
-        ids = ((existing and existing[:ids]) or Set.new)
-        Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => ids.merge([obj.id]), :range => values[:range_value]})
+        while true
+          existing = Dynamoid::Adapter.read(self.table_name, values[:hash_value], { :range_key => values[:range_value] })
+          ids = ((existing and existing[:ids]) or Set.new)
+          if existing
+            if existing[:ids]
+              options = {:if => {:ids => existing[:ids]}}
+            else
+              options = {:unless_exists => "ids"}
+            end
+          end
+          begin
+            return Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => ids + Set[obj.id], :range => values[:range_value]}, options)
+          rescue Dynamoid::Errors::ConditionalCheckFailedException
+          end
+        end
       end
 
       # Delete an object from this index, preserving existing ids if there are any, and failing gracefully if for some reason the 
@@ -93,9 +105,15 @@ module Dynamoid #:nodoc:
       def delete(obj, changed_attributes = false)
         values = values(obj, changed_attributes)
         return true if values[:hash_value].blank? || (!values[:range_value].nil? && values[:range_value].blank?)
-        existing = Dynamoid::Adapter.read(self.table_name, values[:hash_value], { :range_key => values[:range_value]})
-        return true unless existing && existing[:ids] && existing[:ids].include?(obj.id)
-        Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => (existing[:ids] - Set[obj.id]), :range => values[:range_value]})
+        while true
+          existing = Dynamoid::Adapter.read(self.table_name, values[:hash_value], { :range_key => values[:range_value]})
+          return true unless existing && existing[:ids] && existing[:ids].include?(obj.id)
+          options = {:if => {:ids => existing[:ids]}}
+          begin
+            return Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => (existing[:ids] - Set[obj.id]), :range => values[:range_value]}, options)
+          rescue Dynamoid::Errors::ConditionalCheckFailedException
+          end
+        end
       end
       
     end
