@@ -28,7 +28,7 @@ module Dynamoid
       #
       # @since 0.4.0
       def create_table(options = {})
-        if self.range_key
+        if self.range_key && options[:id].nil?
           range_key_hash = { range_key => dynamo_type(attributes[range_key][:type]) }
         else
           range_key_hash = nil
