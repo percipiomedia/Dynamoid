@@ -8,15 +8,19 @@ module Dynamoid #:nodoc:
       delegate :class, :to => :target
 
       def setter(object)
-        delete
-        source.update_attribute(source_attribute, Set[object.id])
-        self.send(:associate_target, object) if target_association
+        delete unless source.send(source_attribute).nil?
+        if object
+          raise Dynamoid::Errors::Error.new("Cannot reference object #{object.inspect} without ID.") if object.id.nil?
+          raise Dynamoid::Errors::Error.new("Cannot create inverse association on object #{self.inspect} without ID.") if target_association && self.id.nil?
+          source.update_attribute(source_attribute, object.id)
+          self.send(:associate_target, object) if target_association
+        end
         object
       end
 
       def delete
-        source.update_attribute(source_attribute, nil)
         self.send(:disassociate_target, target) if target && target_association
+        source.update_attribute(source_attribute, nil)
         target
       end
 
@@ -63,6 +67,14 @@ module Dynamoid #:nodoc:
       def find_target
         return if source_ids.empty?
         target_class.find(source_ids.first)
+      end
+
+      # The ids in the source association.
+      #
+      # @since 0.2.0
+      def source_ids
+        id = source.send(source_attribute)
+        (id && Set[id]) || Set.new
       end
     end
   end

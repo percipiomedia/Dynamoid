@@ -68,14 +68,28 @@ module Dynamoid #:nodoc:
       #
       # @since 0.2.0
       def target_attribute
-        "#{target_association}_ids".to_sym if target_association
+        association = target_association
+        if association
+          case target_class.associations[association][:type]
+          when :has_one, :belongs_to
+            "#{association.name}_id".to_sym
+          when :has_many, :has_and_belongs_to_many
+            "#{association.to_s.singularize}_ids".to_sym
+          end
+        end
       end
 
       # The ids in the target association.
       #
       # @since 0.2.0
       def target_ids
-        target.send(target_attribute) || Set.new
+        case target_class.associations[target_association][:type]
+        when :has_one, :belongs_to
+          id = target.send(target_attribute) if target
+          (id && Set[id]) || Set.new
+        when :has_many, :has_and_belongs_to_many
+          (target && target.send(target_attribute)) || Set.new
+        end
       end
 
       # The ids in the target association.
@@ -85,20 +99,41 @@ module Dynamoid #:nodoc:
         source.class
       end
 
-      # The source's association attribute: the name of the association with _ids afterwards, like "users_ids".
+      # The source's association attribute: the name of the association with "_id" or "_ids"
+      # afterwards, like "user_ids".
       #
       # @since 0.2.0
       def source_attribute
-        "#{name}_ids".to_sym
+        if self.respond_to? :count
+          "#{self.name.to_s.singularize}_ids".to_sym
+        else
+          "#{self.name}_id".to_sym
+        end
       end
 
-      # The ids in the source association.
+      # Associate a source object to this association.
       #
       # @since 0.2.0
-      def source_ids
-        source.send(source_attribute) || Set.new
+      def associate_target(object)
+        case target_class.associations[target_association][:type]
+        when :has_one, :belongs_to
+          object.update_attribute(target_attribute, source.id)
+        when :has_many, :has_and_belongs_to_many
+          object.update_attribute(target_attribute, target_ids.merge(Array(source.id)))
+        end
       end
 
+      # Disassociate a source object from this association.
+      #
+      # @since 0.2.0      
+      def disassociate_target(object)
+        case target_class.associations[target_association][:type]
+        when :has_one, :belongs_to
+          object.update_attribute(target_attribute, nil)
+        when :has_many, :has_and_belongs_to_many
+          object.update_attribute(target_attribute, object.send(target_attribute) - Array(source.id))
+        end
+      end
     end
   end
 

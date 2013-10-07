@@ -186,6 +186,12 @@ module Dynamoid #:nodoc:
         end
       end
 
+      # The ids in the source association.
+      #
+      # @since 0.2.0
+      def source_ids
+        source.send(source_attribute) || Set.new
+      end
     end
   end
 end

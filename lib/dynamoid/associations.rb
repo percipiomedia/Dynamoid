@@ -87,15 +87,28 @@ module Dynamoid
       # @param [Hash] options options to pass to the association constructor; see above for all valid options
       #
       # @since 0.2.0      
-      def association(type, name, options = {})
-        field "#{name}_ids".to_sym, :set
+      def association(type, name, single, options = {})
+        case type
+          when :has_one, :belongs_to
+            sym = "#{name}_id".to_sym
+            field sym, :string
+          when :has_many, :has_and_belongs_to_many
+            sym = "#{name.to_s.singularize}_ids".to_sym
+            field sym, :set
+        end
         self.associations[name] = options.merge(:type => type)
         define_method(name) do
-          @associations[:"#{name}_ids"] ||= Dynamoid::Associations.const_get(type.to_s.camelcase).new(self, name, options)
+          case type
+          when :has_many, :has_and_belongs_to_many
+            @associations[sym] ||= Dynamoid::Associations.const_get(type.to_s.camelcase).new(self, name, options)
+          else
+            @associations[sym]
+          end
         end
         define_method("#{name}=".to_sym) do |objects|
-          @associations[:"#{name}_ids"] ||= Dynamoid::Associations.const_get(type.to_s.camelcase).new(self, name, options)
-          @associations[:"#{name}_ids"].setter(objects)
+          @associations[sym] ||= Dynamoid::Associations.const_get(type.to_s.camelcase).new(self, name, options)
+          @associations[sym].setter(objects)
+          @associations[sym] = nil if objects.nil?
         end
       end
     end
