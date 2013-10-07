@@ -47,6 +47,11 @@ module Dynamoid #:nodoc:
         unless(attributes.has_key? hash_key)
           remove_field :id
           field(hash_key)
+          
+          # Association code requires a method called "id", so alias it to the hash key. Note
+          # that this does not handle (and the association code does not work properly) if there
+          # is also a range key.
+          alias_method :id, hash_key.to_sym
         end
       end
 
