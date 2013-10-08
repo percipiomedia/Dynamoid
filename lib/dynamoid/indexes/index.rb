@@ -103,6 +103,7 @@ module Dynamoid #:nodoc:
       #
       # @since 0.2.0      
       def delete(obj, changed_attributes = false)
+        return true if changed_attributes && obj.new_record?
         values = values(obj, changed_attributes)
         return true if values[:hash_value].blank? || (!values[:range_value].nil? && values[:range_value].blank?)
         while true

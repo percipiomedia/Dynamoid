@@ -49,6 +49,11 @@ module Dynamoid #:nodoc:
       end
 
       private
+      
+      def set(target)
+        @target = target
+        @loaded = true
+      end
 
       # The target class name, either inferred through the association's name or specified in options.
       #
