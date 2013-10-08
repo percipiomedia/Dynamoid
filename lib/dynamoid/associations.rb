@@ -102,7 +102,9 @@ module Dynamoid
           when :has_many, :has_and_belongs_to_many
             @associations[sym] ||= Dynamoid::Associations.const_get(type.to_s.camelcase).new(self, name, options)
           else
-            @associations[sym]
+            if self.send(sym)
+              @associations[sym] ||= Dynamoid::Associations.const_get(type.to_s.camelcase).new(self, name, options)
+            end
           end
         end
         define_method("#{name}=".to_sym) do |objects|
