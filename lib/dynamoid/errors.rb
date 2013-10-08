@@ -22,6 +22,9 @@ module Dynamoid
         super("Validation failed: #{document.errors.full_messages.join(", ")}")
       end
     end
+    
+    # raised when a unique index is violated
+    class UniqueIndexError < Error; end
 
     class InvalidQuery < Error; end
   end

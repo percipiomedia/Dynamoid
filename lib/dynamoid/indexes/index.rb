@@ -7,10 +7,15 @@ module Dynamoid #:nodoc:
       attr_accessor :source, :name, :hash_keys, :range_keys
       alias_method :range_key?, :range_keys
       
-      # Create a new index. Pass either :range => true or :range => :column_name to create a ranged index on that column.
+      # Create a new index. Pass either :range => true or :range_key => :column_name to create a ranged index on that column.
       #
       # @param [Class] source the source class for the index
-      # @param [Symbol] name the name of the index
+      # @param [Symbol] name the name of the column on which the index is created
+      # @option options [true|false] range created a ranged index on the named column
+      # @option options [Symbol] range_key the field to be used as a range key for this index
+      # @option options [true|false] unique if true, then only one record may have each non-null
+      #    value for the named field and a +ConditionalCheckFailedException+ will be thrown when
+      #    an attempt to persist a non-unique record is made
       #
       # @since 0.2.0      
       def initialize(source, name, options = {})
@@ -23,6 +28,7 @@ module Dynamoid #:nodoc:
         end
         @hash_keys = sort(name)
         @name = sort([hash_keys, range_keys])
+        @unique = options.delete(:unique)
         
         raise Dynamoid::Errors::InvalidField, 'A key specified for an index is not a field' unless keys.all?{|n| source.attributes.include?(n)}
       end
@@ -49,6 +55,11 @@ module Dynamoid #:nodoc:
       # @since 0.2.0
       def table_name
         "#{Dynamoid::Config.namespace}_index_" + source.table_name.sub("#{Dynamoid::Config.namespace}_", '').singularize + "_#{name.collect(&:to_s).collect(&:pluralize).join('_and_')}"
+      end
+      
+      # Is this a unique index?
+      def unique?
+        @unique
       end
 
       # Given either an object or a list of attributes, generate a hash key and a range key for the index. Optionally pass in 
@@ -84,6 +95,12 @@ module Dynamoid #:nodoc:
         while true
           existing = Dynamoid::Adapter.read(self.table_name, values[:hash_value], { :range_key => values[:range_value] })
           ids = ((existing and existing[:ids]) or Set.new)
+          new_ids = ids + Set[obj.id]
+
+          if unique? && new_ids.length > 1
+            raise Dynamoid::Errors::UniqueIndexError.new "Uniqueness failure on index #{table_name}."
+          end
+
           if existing
             if existing[:ids]
               options = {:if => {:ids => existing[:ids]}}
@@ -92,7 +109,7 @@ module Dynamoid #:nodoc:
             end
           end
           begin
-            return Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => ids + Set[obj.id], :range => values[:range_value]}, options)
+            return Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => new_ids, :range => values[:range_value]}, options)
           rescue Dynamoid::Errors::ConditionalCheckFailedException
           end
         end
@@ -110,8 +127,13 @@ module Dynamoid #:nodoc:
           existing = Dynamoid::Adapter.read(self.table_name, values[:hash_value], { :range_key => values[:range_value]})
           return true unless existing && existing[:ids] && existing[:ids].include?(obj.id)
           options = {:if => {:ids => existing[:ids]}}
+          new_ids = existing[:ids] - Set[obj.id]
           begin
-            return Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => (existing[:ids] - Set[obj.id]), :range => values[:range_value]}, options)
+            if new_ids.empty?
+              return Dynamoid::Adapter.delete(self.table_name, values[:hash_value], options.merge({:range_key => values[:range_value]}))
+            else
+              return Dynamoid::Adapter.write(self.table_name, {:id => values[:hash_value], :ids => new_ids, :range => values[:range_value]}, options)
+            end
           rescue Dynamoid::Errors::ConditionalCheckFailedException
           end
         end

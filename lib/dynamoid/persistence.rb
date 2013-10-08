@@ -281,8 +281,14 @@ module Dynamoid
           (conditions[:if] ||= {})[:lock_version] = changes[:lock_version][0] if(changes[:lock_version][0])
         end
 
+        begin
+          save_indexes
+        rescue Dynamoid::Errors::UniqueIndexError => e
+          delete_indexes
+          raise e
+        end
         Dynamoid::Adapter.write(self.class.table_name, self.dump, conditions)
-        save_indexes
+
         @new_record = false
         true
       end
