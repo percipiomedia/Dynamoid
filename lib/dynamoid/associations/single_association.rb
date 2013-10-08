@@ -11,7 +11,7 @@ module Dynamoid #:nodoc:
         delete unless source.send(source_attribute).nil?
         if object
           raise Dynamoid::Errors::Error.new("Cannot reference object #{object.inspect} without ID.") if object.id.nil?
-          raise Dynamoid::Errors::Error.new("Cannot create inverse association on object #{self.inspect} without ID.") if target_association && self.id.nil?
+          raise Dynamoid::Errors::Error.new("Cannot create inverse association on object #{self.inspect} without ID.") if target_association && source.id.nil?
           set(object)
           source.update_attribute(source_attribute, object.id)
           self.send(:associate_target, object) if target_association
