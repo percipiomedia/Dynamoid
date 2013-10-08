@@ -122,6 +122,8 @@ end
 
 These fields will not change an existing table: so specifying a new read_capacity and write_capacity here only works correctly for entirely new tables. Similarly, while Dynamoid will look for a table named `awesome_users` in your namespace, it won't change any existing tables to use that name; and if it does find a table with the correct name, it won't change its hash key, which it expects will be user_id. If this table doesn't exist yet, however, Dynamoid will create it with these options.
 
+If you give both a hash key and a range key, Dyanmoid will define an ```id``` method that returns a JSON array containing the hash key and range value; otherwise the ```id``` method will return only the hash key. This is useful for associations or indexes that need to reference a table with a range key.
+
 ### Fields
 
 You'll have to define all the fields on the model and the data type of each field. Every field on the object must be included here; if you miss any they'll be completely bypassed during DynamoDB's initialization and will not appear on the model objects.

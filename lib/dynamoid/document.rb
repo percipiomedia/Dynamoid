@@ -110,6 +110,12 @@ module Dynamoid #:nodoc:
           else !! find(id_or_conditions)
         end
       end
+      
+      # @return [true|false] true if the +id+ method on this class returns a JSON array containing
+      #    both the hash key and the range value; false if it returns only the hash key 
+      def ranged_id?
+        options[:ranged_id]
+      end
     end
 
     # Initialize a new object.

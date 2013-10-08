@@ -44,6 +44,21 @@ module Dynamoid
       #   find all the tweets using hash key and range key with consistent read
       #   Tweet.find_all([['1', 'red'], ['1', 'green']], :consistent_read => true)
       def find_all(ids, options = {})
+        if self.ranged_id? && options[:range_key].nil?
+          options[:range_key] = []
+          new_ids = ids.map { |id|
+            keys = JSON.parse(id) rescue nil
+            if keys.respond_to?(:each) && keys.respond_to?(:length) && (keys.length rescue 0) == 2
+              options[:range_key] << keys[1]
+              keys[0]
+            end
+          }
+          if options[:range_key].length == ids.length
+            ids = new_ids
+          else
+            options[:range_key] = nil
+          end
+        end        
         items = Dynamoid::Adapter.read(self.table_name, ids, options)
         items ? items[self.table_name].map{|i| from_database(i)} : []
       end
@@ -56,6 +71,13 @@ module Dynamoid
       #
       # @since 0.2.0
       def find_by_id(id, options = {})
+        if self.ranged_id? && options[:range_key].nil?
+          keys = JSON.parse(id) rescue nil
+          if keys.respond_to?(:each) && keys.respond_to?(:length) && (keys.length rescue 0) == 2
+            id = keys[0]
+            options[:range_key] = keys[1]
+          end
+        end
         if item = Dynamoid::Adapter.read(self.table_name, id, options)
           from_database(item)
         else
