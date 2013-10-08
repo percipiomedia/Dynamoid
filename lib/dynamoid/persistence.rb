@@ -99,7 +99,7 @@ module Dynamoid
           if value.is_a?(Date) || value.is_a?(DateTime) || value.is_a?(Time)
             value
           else
-            Time.at(value).to_datetime
+            Time.at(value.to_f).to_datetime
           end
         when :serialized
           if value.is_a?(String)
