@@ -15,8 +15,8 @@ module Dynamoid
       # Establish the connection to DynamoDB.
       #
       # @return [AWS::DynamoDB::Connection] the raw DynamoDB connection
-      # Call DynamoDB new, with no parameters. 
-      # Make sure the aws.yml file or aws.rb file, refer the link for more details. 
+      # Call DynamoDB new, with no parameters.
+      # Make sure the aws.yml file or aws.rb file, refer the link for more details.
       #https://github.com/amazonwebservices/aws-sdk-for-ruby
       # 1. Create config/aws.yml as follows:
       # Fill in your AWS Access Key ID and Secret Access Key
@@ -32,9 +32,9 @@ module Dynamoid
       # load credentials from a file
       #config_path = File.expand_path(File.dirname(__FILE__)+"/../aws.yml")
       #AWS.config(YAML.load(File.read(config_path)))
-      #Additionally include any of the dynamodb paramters as needed 
-      #(eg: if you would like to change the dynamodb endpoint, then add the parameter in 
-      # the following paramter in the file  aws.yml or aws.rb 
+      #Additionally include any of the dynamodb paramters as needed
+      #(eg: if you would like to change the dynamodb endpoint, then add the parameter in
+      # the following paramter in the file  aws.yml or aws.rb
       # dynamo_db_endpoint : dynamodb.ap-southeast-1.amazonaws.com)
       # @since 0.2.0
       def connect!
@@ -75,7 +75,7 @@ module Dynamoid
         end
         hash
       end
-      
+
       # Delete many items at once from DynamoDB. More efficient than delete each item individually.
       #
       # @example Delete IDs 1 and 2 from the table testtable
@@ -93,7 +93,7 @@ module Dynamoid
           Array(ids).in_groups_of(25, false) do |group|
             batch = AWS::DynamoDB::BatchWrite.new(:config => @@connection.config)
             batch.delete(t,group)
-            batch.process!          
+            batch.process!
           end
         end
         nil
@@ -198,7 +198,7 @@ module Dynamoid
           options || {}
         )
       rescue AWS::DynamoDB::Errors::ConditionalCheckFailedException => e
-        raise Dynamoid::Errors::ConditionalCheckFailedException        
+        raise Dynamoid::Errors::ConditionalCheckFailedException
       end
 
       # Query the DynamoDB table. This employs DynamoDB's indexes so is generally faster than scanning, but is
@@ -248,12 +248,13 @@ module Dynamoid
       def scan(table_name, scan_hash, select_opts)
         table = get_table(table_name)
         Enumerator.new do |yielder|
-          table.items.where(scan_hash).select(select_opts).each do |data|
+          select_array = select_opts[:attributes] # ADDED
+          table.items.where(scan_hash).select(*select_array).each do |data| # ADDED
             yielder.yield data.attributes.symbolize_keys!
           end
         end
       end
-
+      
       # @todo Add an UpdateItem method.
 
       # @todo Add an UpdateTable method.

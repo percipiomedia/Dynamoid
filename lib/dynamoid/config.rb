@@ -31,7 +31,12 @@ module Dynamoid
     #
     # @since 0.2.0
     def default_logger
-      defined?(Rails) && Rails.respond_to?(:logger) ? Rails.logger : ::Logger.new($stdout)
+      logger = defined?(Rails) && Rails.respond_to?(:logger) ? Rails.logger : ::Logger.new($stdout)
+      if logger
+        return logger
+      else
+        return Logger.new('log/jobcase_dynamoid.log')
+      end
     end
 
     # Returns the assigned logger instance.

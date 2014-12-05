@@ -49,15 +49,15 @@ module Dynamoid #:nodoc:
         unless(attributes.has_key? hash_key)
           remove_field :id
           field(hash_key)
-          
+
           # Association code requires a method called "id", so alias it to the hash key.
           alias_method :id, hash_key.to_sym
         end
-        
+
         if options[:range_key]
           self.range_key = options[:range_key]
           field(range_key)
-          
+
           # If there is both a named hash key and a range key that is specified in this call, then
           # override the "id" method to return a JSON of the two values together, so that they can
           # be referenced in an assocation or an index. +find_by_id+ or +find_all+ on this class
@@ -66,7 +66,7 @@ module Dynamoid #:nodoc:
             define_method(:id) {
               if hash_key && range_value
                  [ dump_field(hash_key, self.class.attributes[self.class.hash_key]),
-                   dump_field(range_value, self.class.attributes[self.class.range_key]) ].to_json 
+                   dump_field(range_value, self.class.attributes[self.class.range_key]) ].to_json
               end
             }
             options[:ranged_id] = true
@@ -112,7 +112,12 @@ module Dynamoid #:nodoc:
     #
     # @since 0.2.0
     def read_attribute(name)
-      attributes[name.to_sym]
+      attrib = attributes[name.to_sym]
+      # this method was modified to return the system_attribute if it exists
+      if attrib.nil? && attributes.respond_to?(:system_attributes)
+        attrib = attributes.system_attributes[name.to_sym]
+      end
+      attrib
     end
     alias :[] :read_attribute
 
