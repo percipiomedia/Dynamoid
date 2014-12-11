@@ -21,6 +21,7 @@ Jeweler::Tasks.new do |gem|
   gem.description = "Dynamoid is an ORM for Amazon's DynamoDB that supports offline development, associations, querying, and everything else you'd expect from an ActiveRecord-style replacement."
   gem.email = "josh@joshsymonds.com"
   gem.authors = ["Josh Symonds"]
+  gem.version = File.open('VERSION').read.strip
   # dependencies defined in Gemfile
 end
 Jeweler::RubygemsDotOrgTasks.new
@@ -36,7 +37,7 @@ RSpec::Core::RakeTask.new(:rcov) do |spec|
   spec.rcov = true
 end
 
-desc "Start fake_dynamo, run tests, cleanup" 
+desc "Start fake_dynamo, run tests, cleanup"
 task :unattended_spec do |t|
   require 'tmpdir'
   require 'socket'
@@ -51,7 +52,7 @@ task :unattended_spec do |t|
     Process.kill('TERM', pid)
     FileUtils.rmtree(dir)
   }
-  
+
   #Wait for fake_dynamo to start taking requests
   40.downto(0) do |count| #Wait up to 2 seconds
     begin
@@ -63,7 +64,7 @@ task :unattended_spec do |t|
       sleep 0.1
     end
   end
-  
+
   Rake::Task["spec"].invoke
 end
 
