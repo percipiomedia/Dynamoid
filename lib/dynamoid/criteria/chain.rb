@@ -44,22 +44,24 @@ module Dynamoid #:nodoc:
       #
       # @since 0.2.0
       def all(opts = {})
+        @attributes_to_return = [] # ADDED to support requesting specific attributes
+        @attributes_to_return = opts[:attributes] # ADDED to support requesting specific attributes
         batch opts[:batch_size] if opts.has_key? :batch_size
         records
       end
-      
+
       # Destroys all the records matching the criteria.
       #
       def destroy_all
         ids = []
-        
+
         if range?
           ranges = []
-          Dynamoid::Adapter.query(source.table_name, range_query).collect do |hash| 
+          Dynamoid::Adapter.query(source.table_name, range_query).collect do |hash|
             ids << hash[source.hash_key.to_sym]
             ranges << hash[source.range_key.to_sym]
           end
-          
+
           Dynamoid::Adapter.delete(source.table_name, ids,{:range_key => ranges})
         elsif index
           #TODO: test this throughly and find a way to delete all index table records for one source record
@@ -68,41 +70,41 @@ module Dynamoid #:nodoc:
           else
             results = Dynamoid::Adapter.read(index.table_name, index_query[:hash_value], consistent_opts)
           end
-          
-          results.collect do |hash| 
+
+          results.collect do |hash|
             ids << hash[source.hash_key.to_sym]
             index_ranges << hash[source.range_key.to_sym]
           end
-        
+
           unless ids.nil? || ids.empty?
             ids = ids.to_a
-  
+
             if @start
               ids = ids.drop_while { |id| id != @start.hash_key }.drop(1)
               index_ranges = index_ranges.drop_while { |range| range != @start.hash_key }.drop(1) unless index_ranges.nil?
             end
-  
-            if @limit           
-              ids = ids.take(@limit) 
+
+            if @limit
+              ids = ids.take(@limit)
               index_ranges = index_ranges.take(@limit)
             end
-            
+
             Dynamoid::Adapter.delete(source.table_name, ids)
-            
+
             if index.range_key?
               Dynamoid::Adapter.delete(index.table_name, ids,{:range_key => index_ranges})
             else
               Dynamoid::Adapter.delete(index.table_name, ids)
             end
-            
+
           end
         else
-          Dynamoid::Adapter.scan(source.table_name, query, scan_opts).collect do |hash| 
+          Dynamoid::Adapter.scan(source.table_name, query, scan_opts).collect do |hash|
             ids << hash[source.hash_key.to_sym]
           end
-          
+
           Dynamoid::Adapter.delete(source.table_name, ids)
-        end   
+        end
       end
 
       # Returns the first record matching the criteria.
@@ -252,7 +254,7 @@ module Dynamoid #:nodoc:
 
         return { :range_value => query[key] } if query[key].is_a?(Range)
 
-        case key.split('.').last
+        case key.to_s.split('.').last
         when 'gt'
           { :range_greater_than => val.to_f }
         when 'lt'
@@ -310,12 +312,13 @@ module Dynamoid #:nodoc:
         opts[:scan_index_forward] = @scan_index_forward
         opts
       end
-      
+
       def scan_opts
         opts = {}
         opts[:limit] = @limit if @limit
         opts[:next_token] = start_key if @start
         opts[:batch_size] = @batch_size if @batch_size
+        opts[:attributes] = @attributes_to_return if @attributes_to_return # ADDED to support requesting specific attributes
         opts
       end
     end

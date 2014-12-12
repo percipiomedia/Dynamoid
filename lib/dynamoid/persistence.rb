@@ -109,26 +109,59 @@ module Dynamoid
           end
         when :boolean
           # persisted as 't', but because undump is called during initialize it can come in as true
-          if value == 't' || value == true
+          if value == 't' || value == 'true' || value == '1' || value == true # accept other values than "t"
             true
-          elsif value == 'f' || value == false
+          elsif value == 'f' || value == 'false' || value == '0' || value == false # accept other values than "f"
             false
           else
-            raise ArgumentError, "Boolean column neither true nor false"
+            raise ArgumentError, "Boolean column neither true nor false. It is #{value}." # echo value
           end
         else
           raise ArgumentError, "Unknown type #{options[:type]}"
         end
       end
 
+      # in this module of the Dynamoid gem this is a private method but we need it to make custom queries
+      def public_dump_field(value, options)
+        return if value.nil? || (value.respond_to?(:empty?) && value.empty?)
+
+        case options[:type]
+        when :string
+          value.to_s
+        when :integer
+          value.to_i
+        when :float
+          value.to_f
+        when :set, :array
+          if value.is_a?(Set) || value.is_a?(Array)
+            value
+          else
+            Set[value]
+          end
+        when :datetime
+          value.to_time.to_f
+        when :serialized
+          options[:serializer] ? options[:serializer].dump(value) : value.to_yaml
+        when :boolean
+          value.to_s[0]
+        else
+          raise ArgumentError, "Unknown type #{options[:type]}"
+        end
+      end
+
       def dynamo_type(type)
-        case type
+        converted_type = (type.is_a?(Symbol) ? type : type.to_sym)
+        case converted_type
         when :integer, :float, :datetime
           :number
-        when :string, :serialized
+        when :string, :serialized, :boolean
           :string
         else
-          raise 'unknown type'
+          if type
+            raise 'unknown type: [' + type.to_s + ']'
+          else
+            raise 'type param is nil'
+          end
         end
       end
 
@@ -155,7 +188,7 @@ module Dynamoid
     # @since 0.2.0
     def save(options = {})
       self.class.create_table
-      
+
       if new_record?
         conditions = { :unless_exists => [self.class.hash_key]}
         conditions[:unless_exists] << range_key if(range_key)
@@ -169,8 +202,8 @@ module Dynamoid
     end
 
     #
-    # update!() will increment the lock_version if the table has the column, but will not check it. Thus, a concurrent save will 
-    # never cause an update! to fail, but an update! may cause a concurrent save to fail. 
+    # update!() will increment the lock_version if the table has the column, but will not check it. Thus, a concurrent save will
+    # never cause an update! to fail, but an update! may cause a concurrent save to fail.
     #
     #
     def update!(conditions = {}, &block)
@@ -257,7 +290,7 @@ module Dynamoid
         raise ArgumentError, "Unknown type #{options[:type]}"
       end
     end
-    
+
     # Persist the object into the datastore. Assign it an id first if it doesn't have one; then afterwards,
     # save its indexes.
     #
@@ -265,7 +298,7 @@ module Dynamoid
     def persist(conditions = nil)
       run_callbacks(:save) do
         self.hash_key = SecureRandom.uuid if self.hash_key.nil? || self.hash_key.blank?
-        
+
         # Add an exists check to prevent overwriting existing records with new ones
         if(new_record?)
           conditions ||= {}
@@ -276,7 +309,7 @@ module Dynamoid
         if(self.class.attributes[:lock_version])
           conditions ||= {}
           raise "Optimistic locking cannot be used with Partitioning" if(Dynamoid::Config.partitioning)
-          self.lock_version = (lock_version || 0) + 1 
+          self.lock_version = (lock_version || 0) + 1
           #Uses the original lock_version value from ActiveModel::Dirty in case user changed lock_version manually
           (conditions[:if] ||= {})[:lock_version] = changes[:lock_version][0] if(changes[:lock_version][0])
         end
