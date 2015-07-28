@@ -198,6 +198,7 @@ module Dynamoid
           options || {}
         )
       rescue AWS::DynamoDB::Errors::ConditionalCheckFailedException => e
+        ::Rollbar.warning(e) if defined?(Rollbar)
         raise Dynamoid::Errors::ConditionalCheckFailedException
       end
 
